@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/calvine/richerror/richerror/cmd"
+import "github.com/calvine/richerror/internal/cmd"
 
 func main() {
 	cmd.Execute()

@@ -27,8 +27,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/calvine/richerror/richerror/templates"
-	"github.com/calvine/richerror/richerror/utilities"
+	"github.com/calvine/richerror/internal/templates"
+	"github.com/calvine/richerror/internal/utilities"
 	"github.com/spf13/cobra"
 )
 
