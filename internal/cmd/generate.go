@@ -107,7 +107,6 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	// fmt.Printf("%s - %s - %s", errorsDefinitionFile, outDir, outputErrorPkg)
 	errorsDir := path.Join(outDir, strings.ToLower(outputErrorPkg))
 	errorsDirExists, _ := utilities.DirExists(errorsDir)
-	specificTags := strings.Split(tags, ",")
 	if !errorsDirExists {
 		err := os.MkdirAll(errorsDir, os.ModePerm)
 		if err != nil {
@@ -130,7 +129,8 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 		panic(errMsg)
 	}
 	json.Unmarshal(jsonErrorDataFileData, &errDataSlice)
-	if len(specificTags) > 0 {
+	if tags != "" {
+		specificTags := strings.Split(tags, ",")
 		fmt.Printf("Tags specified. Filtering error definitions to only generate errors with the following tags: %s\n\n", tags)
 		errDataSlice = getMatchingErrorsByTag(errDataSlice, specificTags)
 	}
@@ -194,7 +194,9 @@ func getMatchingErrorsByTag(data []errorData, tags []string) []errorData {
 	for _, errDefinition := range data {
 		hasMatchingTag := false
 		for _, errTag := range errDefinition.Tags {
+			errTag = strings.TrimSpace(strings.ToLower(errTag))
 			for _, cliTag := range tags {
+				cliTag = strings.TrimSpace(strings.ToLower(cliTag))
 				if errTag == cliTag {
 					fmt.Printf("Error '%s' has matching tag '%s'\n", errDefinition.Code, errTag)
 					hasMatchingTag = true

@@ -101,7 +101,9 @@
         "metaData": [
             { "name": "userID", "dataType": "string"}
         ],
-        "tags": []
+        "tags": [
+            "auth"
+        ]
     },
     {
         "code": "ComputeHashFailed",
