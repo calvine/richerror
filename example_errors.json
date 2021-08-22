@@ -5,7 +5,8 @@
         "includeMap": false,
         "metaData": [
             { "name": "typeEncountered", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "InvalidValue",
@@ -13,25 +14,33 @@
         "includeMap": false,
         "metaData": [
             { "name": "value", "dataType": "interface{}"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "NilNotAllowed",
         "message": "a nil value was encountered, but not allowed",
         "includeMap": false,
-        "metaData": []
+        "metaData": [],
+        "tags": []
     },
     {
         "code": "NoContactFound",
         "message": "no contact found for given query",
         "includeMap": true,
-        "metaData": []
+        "metaData": [],
+        "tags": [
+            "database"
+        ]
     },
     {
         "code": "NoUserFound",
         "message": "no user found for given query",
         "includeMap": true,
-        "metaData": []
+        "metaData": [],
+        "tags": [
+            "database"
+        ]
     },
     {
         "code": "RepoQueryFailed",
@@ -39,6 +48,9 @@
         "includeMap": false,
         "metaData": [
             { "name": "queryError", "dataType": "error"}
+        ],
+        "tags": [
+            "database"
         ]
     },
     {
@@ -49,7 +61,8 @@
             { "name": "contactId", "dataType": "string"},
             { "name": "principal", "dataType": "string"},
             { "name": "principalType", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "LoginContactNotPrimary",
@@ -59,7 +72,8 @@
             { "name": "contactId", "dataType": "string"},
             { "name": "principal", "dataType": "string"},
             { "name": "principalType", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "UserLockedOut",
@@ -67,7 +81,8 @@
         "includeMap": false,
         "metaData": [
             { "name": "userID", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "WrongType",
@@ -76,7 +91,8 @@
         "metaData": [
             { "name": "actual", "dataType": "string"},
             { "name": "expected", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "LoginFailedWrongPassword",
@@ -84,7 +100,8 @@
         "includeMap": false,
         "metaData": [
             { "name": "userID", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "ComputeHashFailed",
@@ -93,7 +110,8 @@
         "metaData": [
             { "name": "algorithm", "dataType": "string"},
             { "name": "error", "dataType": "error"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "FailedToParseObjectID",
@@ -102,7 +120,8 @@
         "metaData": [
             { "name": "oid", "dataType": "string"},
             { "name": "error", "dataType": "error"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "ComponentNotImplemented",
@@ -111,7 +130,8 @@
         "metaData": [
             { "name": "compoenentType", "dataType": "string"},
             { "name": "missingType", "dataType": "string"}
-        ]
+        ],
+        "tags": []
     },
     {
         "code": "BcryptPasswordHashError",
@@ -120,6 +140,7 @@
         "metaData": [
             { "name": "assetId", "dataType": "string"},
             { "name": "error", "dataType": "error"}
-        ]
+        ],
+        "tags": []
     }
 ]

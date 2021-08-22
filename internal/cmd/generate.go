@@ -42,6 +42,8 @@ type dataItem struct {
 type errorData struct {
 	// Code is expected to be Pascal Case. Is a preferable unique string code for an error.
 	Code string `json:"code"`
+	// Tags are a way of grouping errors together so that the can be target for generation in groups.
+	Tags []string `json:"tags"`
 	// Message is a string added as the message to the error produced.
 	Message string `json:"message"`
 	// IncludeMap if true adds a map[string]interface{} to the parameters of a constructor so that a genereic map of data can get added to an error constructor parameters list in addition to any specific data defined in MetaData.
@@ -59,6 +61,7 @@ const (
 	FlagErrorsDefinitionFile = "errorsDefinitionFile"
 	FlagOutDir               = "outDir"
 	FlagOutputErrorPkg       = "outputErrorPkg"
+	FlagTags                 = "tags"
 	// FlagOutputCodePkg        = "outputCodePkg"
 	// FlagTargetPackage = "targetPkg"
 )
@@ -68,6 +71,7 @@ var (
 	errorsDefinitionFile string
 	outDir               string
 	outputErrorPkg       string
+	tags                 string
 	// outputCodePkg        string
 	// targetPkg            string
 
@@ -95,6 +99,7 @@ func initGenerator() {
 	generateCmd.MarkFlagRequired(FlagErrorsDefinitionFile)
 	generateCmd.Flags().StringVarP(&outDir, FlagOutDir, "o", ".", "The output path to place the generated files. Setting this to 'stdout' will print the generated files to stdout.")
 	generateCmd.Flags().StringVarP(&outputErrorPkg, FlagOutputErrorPkg, "e", "errors", "The package to put at the top of the generated error files")
+	generateCmd.Flags().StringVarP(&tags, FlagTags, "t", "", "Specifies the errors to perform code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas")
 	// generateCmd.Flags().StringVarP(&outputCodePkg, FlagOutputCodePkg, "c", "codes", "The package to put at the top of the generated error code files")
 }
 
@@ -102,6 +107,7 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	// fmt.Printf("%s - %s - %s", errorsDefinitionFile, outDir, outputErrorPkg)
 	errorsDir := path.Join(outDir, strings.ToLower(outputErrorPkg))
 	errorsDirExists, _ := utilities.DirExists(errorsDir)
+	specificTags := strings.Split(tags, ",")
 	if !errorsDirExists {
 		err := os.MkdirAll(errorsDir, os.ModePerm)
 		if err != nil {
@@ -124,7 +130,11 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 		panic(errMsg)
 	}
 	json.Unmarshal(jsonErrorDataFileData, &errDataSlice)
-	// fmt.Printf("%v\n\n", errDataSlice)
+	if len(specificTags) > 0 {
+		fmt.Printf("Tags specified. Filtering error definitions to only generate errors with the following tags: %s\n\n", tags)
+		errDataSlice = getMatchingErrorsByTag(errDataSlice, specificTags)
+	}
+	fmt.Printf("generating %d errors.", len(errDataSlice))
 	for _, data := range errDataSlice {
 		genData := generatorData{outputErrorPkg, data}
 		constructorBuffer := bytes.NewBufferString("")
@@ -177,4 +187,26 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 			// }
 		}
 	}
+}
+
+func getMatchingErrorsByTag(data []errorData, tags []string) []errorData {
+	matchingTagErrors := make([]errorData, 0)
+	for _, errDefinition := range data {
+		hasMatchingTag := false
+		for _, errTag := range errDefinition.Tags {
+			for _, cliTag := range tags {
+				if errTag == cliTag {
+					fmt.Printf("Error '%s' has matching tag '%s'\n", errDefinition.Code, errTag)
+					hasMatchingTag = true
+					break
+				}
+			}
+			if hasMatchingTag {
+				matchingTagErrors = append(matchingTagErrors, errDefinition)
+				break
+			}
+		}
+	}
+	fmt.Printf("\n%d errors matched the tags provided.\n\n", len(matchingTagErrors))
+	return matchingTagErrors
 }
