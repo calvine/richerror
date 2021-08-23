@@ -98,7 +98,7 @@ func initGenerator() {
 
 	// This flags are persistent because at soom point other languages could be sub commands to this command.
 	generateCmd.PersistentFlags().StringVarP(&errorsDefinitionFile, FlagErrorsDefinitionFile, "i", "", "The path to the errors definition file to use for error generation.")
-	generateCmd.MarkFlagRequired(FlagErrorsDefinitionFile)
+	generateCmd.MarkPersistentFlagRequired(FlagErrorsDefinitionFile)
 	generateCmd.PersistentFlags().StringVarP(&outDir, FlagOutDir, "o", ".", "The output path to place the generated files. Setting this to 'stdout' will print the generated files to stdout.")
 	generateCmd.PersistentFlags().StringVarP(&outputErrorPkg, FlagOutputErrorPkg, "e", "errors", "The package to put at the top of the generated error files")
 	generateCmd.PersistentFlags().StringVarP(&includeTags, FlagIncludeTags, "t", "", fmt.Sprintf("Specifies the errors to perform code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas. This is mutually exclusive with %s", FlagExcludeTags))
