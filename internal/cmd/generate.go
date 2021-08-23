@@ -61,7 +61,8 @@ const (
 	FlagErrorsDefinitionFile = "errorsDefinitionFile"
 	FlagOutDir               = "outDir"
 	FlagOutputErrorPkg       = "outputErrorPkg"
-	FlagTags                 = "tags"
+	FlagIncludeTags          = "includeTags"
+	FlagExcludeTags          = "excludeTags"
 	// FlagOutputCodePkg        = "outputCodePkg"
 	// FlagTargetPackage = "targetPkg"
 )
@@ -71,7 +72,8 @@ var (
 	errorsDefinitionFile string
 	outDir               string
 	outputErrorPkg       string
-	tags                 string
+	includeTags          string
+	excludeTags          string
 	// outputCodePkg        string
 	// targetPkg            string
 
@@ -93,13 +95,14 @@ func initGenerator() {
 	// generateCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// generateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	generateCmd.Flags().StringVarP(&errorsDefinitionFile, FlagErrorsDefinitionFile, "i", "", "The path to the errors definition file to use for error generation.")
+
+	// This flags are persistent because at soom point other languages could be sub commands to this command.
+	generateCmd.PersistentFlags().StringVarP(&errorsDefinitionFile, FlagErrorsDefinitionFile, "i", "", "The path to the errors definition file to use for error generation.")
 	generateCmd.MarkFlagRequired(FlagErrorsDefinitionFile)
-	generateCmd.Flags().StringVarP(&outDir, FlagOutDir, "o", ".", "The output path to place the generated files. Setting this to 'stdout' will print the generated files to stdout.")
-	generateCmd.Flags().StringVarP(&outputErrorPkg, FlagOutputErrorPkg, "e", "errors", "The package to put at the top of the generated error files")
-	generateCmd.Flags().StringVarP(&tags, FlagTags, "t", "", "Specifies the errors to perform code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas")
+	generateCmd.PersistentFlags().StringVarP(&outDir, FlagOutDir, "o", ".", "The output path to place the generated files. Setting this to 'stdout' will print the generated files to stdout.")
+	generateCmd.PersistentFlags().StringVarP(&outputErrorPkg, FlagOutputErrorPkg, "e", "errors", "The package to put at the top of the generated error files")
+	generateCmd.PersistentFlags().StringVarP(&includeTags, FlagIncludeTags, "t", "", fmt.Sprintf("Specifies the errors to perform code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas. This is mutually exclusive with %s", FlagExcludeTags))
+	generateCmd.PersistentFlags().StringVarP(&excludeTags, FlagExcludeTags, "x", "", fmt.Sprintf("Specifies the errors to exclude from code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas. This is mutually exclusive with %s", FlagIncludeTags))
 	// generateCmd.Flags().StringVarP(&outputCodePkg, FlagOutputCodePkg, "c", "codes", "The package to put at the top of the generated error code files")
 }
 
@@ -129,24 +132,28 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 		panic(errMsg)
 	}
 	json.Unmarshal(jsonErrorDataFileData, &errDataSlice)
-	if tags != "" {
-		specificTags := strings.Split(tags, ",")
-		fmt.Printf("Tags specified. Filtering error definitions to only generate errors with the following tags: %s\n\n", tags)
-		errDataSlice = getMatchingErrorsByTag(errDataSlice, specificTags)
+	if includeTags != "" {
+		specificTags := strings.Split(includeTags, ",")
+		fmt.Printf("Include tags specified. Filtering error definitions to only generate errors with the following tags: %s\n\n", includeTags)
+		errDataSlice = getMatchingErrorsByTag(errDataSlice, specificTags, true)
+	} else if excludeTags != "" {
+		specificTags := strings.Split(excludeTags, ",")
+		fmt.Printf("Exclude tags specified. Filtering error definitions to only generate errors without the following tags: %s\n\n", excludeTags)
+		errDataSlice = getMatchingErrorsByTag(errDataSlice, specificTags, false)
 	}
-	fmt.Printf("generating %d errors.", len(errDataSlice))
+	fmt.Printf("generating %d errors.\n\n", len(errDataSlice))
 	for _, data := range errDataSlice {
 		genData := generatorData{outputErrorPkg, data}
 		constructorBuffer := bytes.NewBufferString("")
 		err := errConstructorTemplate.Execute(constructorBuffer, genData)
 		if err != nil {
-			fmt.Printf("failed to execute error constructor template: %s", err.Error())
+			fmt.Printf("failed to execute error constructor template: %s\n", err.Error())
 			continue
 		}
 		errConstructorCode, err := format.Source(constructorBuffer.Bytes())
 		if err != nil {
 			fmt.Printf("%s", constructorBuffer)
-			fmt.Printf("Failed to run format.Source on error code template: %s", err.Error())
+			fmt.Printf("Failed to run format.Source on error code template: %s\n", err.Error())
 			continue
 		}
 
@@ -174,6 +181,7 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 			// emit files...
 			fileName := fmt.Sprintf("%s.go", strings.ToLower(data.Code))
 			errConstructorFilePath := path.Join(errorsDir, fileName)
+			fmt.Printf("Generating code for error code: %s -> %s\n", data.Code, errConstructorFilePath)
 			err = ioutil.WriteFile(errConstructorFilePath, errConstructorCode, fs.ModePerm)
 			if err != nil {
 				fmt.Printf("Failed to write file %s for err constructor for code %s - %s\n\n\n", errConstructorFilePath, data.Code, err.Error())
@@ -189,26 +197,33 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	}
 }
 
-func getMatchingErrorsByTag(data []errorData, tags []string) []errorData {
-	matchingTagErrors := make([]errorData, 0)
+func getMatchingErrorsByTag(data []errorData, tags []string, isInclude bool) []errorData {
+	matchingErrors := make([]errorData, 0)
 	for _, errDefinition := range data {
 		hasMatchingTag := false
+		var firstMatchedTag string
 		for _, errTag := range errDefinition.Tags {
 			errTag = strings.TrimSpace(strings.ToLower(errTag))
 			for _, cliTag := range tags {
 				cliTag = strings.TrimSpace(strings.ToLower(cliTag))
 				if errTag == cliTag {
-					fmt.Printf("Error '%s' has matching tag '%s'\n", errDefinition.Code, errTag)
+					firstMatchedTag = errTag
 					hasMatchingTag = true
 					break
 				}
 			}
 			if hasMatchingTag {
-				matchingTagErrors = append(matchingTagErrors, errDefinition)
 				break
 			}
 		}
+		if isInclude && hasMatchingTag {
+			fmt.Printf("Added for generation: Error '%s' has matching tag '%s'\n", errDefinition.Code, firstMatchedTag)
+			matchingErrors = append(matchingErrors, errDefinition)
+		} else if !isInclude && !hasMatchingTag {
+			fmt.Printf("Added for generation: Error '%s' does not have tag '%s'\n", errDefinition.Code, firstMatchedTag)
+			matchingErrors = append(matchingErrors, errDefinition)
+		}
 	}
-	fmt.Printf("\n%d errors matched the tags provided.\n\n", len(matchingTagErrors))
-	return matchingTagErrors
+	fmt.Printf("\n%d errors matched the tags provided.\n\n", len(matchingErrors))
+	return matchingErrors
 }
