@@ -17,7 +17,7 @@ var (
 type ReadOnlyRichError interface {
 	GetErrorCode() string
 	GetErrorMessage() string
-	GetStack() string
+	GetStack() []callStackEntry
 	GetSource() string
 	GetFunction() string
 	GetLineNumber() string
@@ -41,13 +41,26 @@ type RichError interface {
 	ReadOnlyRichError
 }
 
+type callStackEntry struct {
+	Depth    int     `json:"depth"`
+	Entry    uintptr `json:"entry"`
+	File     string  `json:"file"`
+	Function string  `json:"function"`
+	Line     int     `json:"line"`
+	PC       uintptr `json:"pc"`
+}
+
+func (cse *callStackEntry) String() string {
+	return fmt.Sprintf("L:%d %v - %s:%d - %s", cse.Depth+1, cse.Entry, cse.File, cse.Line, cse.Function)
+}
+
 type richError struct {
 	ErrCode     string                 `json:"code"`
 	Message     string                 `json:"message"`
 	Source      string                 `json:"source,omitempty"`
 	Function    string                 `json:"function,omitempty"`
 	LineNumber  string                 `json:"lineNumber,omitempty"`
-	Stack       string                 `json:"stack,omitempty"`
+	Stack       []callStackEntry       `json:"stack,omitempty"`
 	OccurredAt  time.Time              `json:"occurredAt"`
 	InnerErrors []error                `json:"innerErrors"`
 	MetaData    map[string]interface{} `json:"metaData"`
@@ -80,7 +93,6 @@ func (e richError) WithStack(stackOffset int) RichError {
 	// This should leave only the relevant stack pieces
 	numFrames := runtime.Callers(baseStackOffset+stackOffset, callerData)
 	data := runtime.CallersFrames(callerData)
-	stackBuffer := bytes.Buffer{}
 	for i := 0; i < numFrames; i++ {
 		nextFrame, _ := data.Next()
 		if i == 0 {
@@ -99,10 +111,17 @@ func (e richError) WithStack(stackOffset int) RichError {
 			e.Function = functionName
 			e.LineNumber = strconv.Itoa(nextFrame.Line)
 		}
-		stackFrame := fmt.Sprintf("%sL:%d %v - %s:%d - %s%s", strings.Repeat(indentString, i), i+1, nextFrame.Entry, nextFrame.File, nextFrame.Line, nextFrame.Function, partSeperator)
-		stackBuffer.WriteString(stackFrame)
+		callStackEntry := callStackEntry{
+			Depth:    i + 1,
+			Entry:    nextFrame.Entry,
+			File:     nextFrame.File,
+			Function: nextFrame.Function,
+			Line:     nextFrame.Line,
+			PC:       nextFrame.PC,
+		}
+		e.Stack = append(e.Stack, callStackEntry)
 	}
-	e.Stack = string(stackBuffer.String())
+
 	return e
 }
 
@@ -162,7 +181,7 @@ func (e richError) GetErrorMessage() string {
 	return e.Message
 }
 
-func (e richError) GetStack() string {
+func (e richError) GetStack() []callStackEntry {
 	return e.Stack
 }
 
@@ -218,9 +237,15 @@ func (e richError) Error() string {
 		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeperator, e.Message)
 		messageBuffer.WriteString(messageSection)
 	}
-	if e.Stack != "" {
-		stackSection := fmt.Sprintf("%sSTACK: %s", partSeperator, e.Stack)
-		messageBuffer.WriteString(stackSection)
+	if len(e.Stack) > 0 {
+		stackBuffer := bytes.Buffer{}
+		firstLine := fmt.Sprintf("%sSTACK: ", partSeperator)
+		stackBuffer.WriteString(firstLine)
+		for _, frame := range e.Stack {
+			stackFrame := fmt.Sprintf("%s%s%s", strings.Repeat(indentString, frame.Depth), frame.String(), partSeperator)
+			stackBuffer.WriteString(stackFrame)
+		}
+		messageBuffer.WriteString(stackBuffer.String())
 	}
 	if len(e.InnerErrors) > 0 {
 		messageBuffer.WriteString("INNER ERRORS:")
