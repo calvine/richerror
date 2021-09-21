@@ -51,7 +51,7 @@ type callStackEntry struct {
 }
 
 func (cse *callStackEntry) String() string {
-	return fmt.Sprintf("L:%d %v - %s:%d - %s", cse.Depth+1, cse.Entry, cse.File, cse.Line, cse.Function)
+	return fmt.Sprintf("L:%d %v - %s:%d - %s", cse.Depth, cse.Entry, cse.File, cse.Line, cse.Function)
 }
 
 type richError struct {
@@ -80,7 +80,6 @@ func NewRichError(errCode, message string) RichError {
 func NewRichErrorWithStack(errCode, message string, stackOffset int) RichError {
 	err := NewRichError(errCode, message).WithStack(stackOffset)
 	return err
-
 }
 
 func (e richError) WithStack(stackOffset int) RichError {
@@ -112,7 +111,7 @@ func (e richError) WithStack(stackOffset int) RichError {
 			e.LineNumber = strconv.Itoa(nextFrame.Line)
 		}
 		callStackEntry := callStackEntry{
-			Depth:    i + 1,
+			Depth:    i,
 			Entry:    nextFrame.Entry,
 			File:     nextFrame.File,
 			Function: nextFrame.Function,
