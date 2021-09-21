@@ -11,6 +11,10 @@ import (
 
 type RichErrorOutputFormat int
 
+var (
+	errorOutputFormat RichErrorOutputFormat = FullOutputFormatted
+)
+
 const (
 	NotSpecified RichErrorOutputFormat = iota
 	DetailedOutput
@@ -72,6 +76,10 @@ type richError struct {
 	OccurredAt  time.Time              `json:"occurredAt"`
 	InnerErrors []error                `json:"innerErrors"`
 	MetaData    map[string]interface{} `json:"metaData"`
+}
+
+func SetErrorOutputFormat(format RichErrorOutputFormat) {
+	errorOutputFormat = format
 }
 
 func NewRichError(errCode, message string) RichError {
@@ -232,7 +240,7 @@ func (e richError) ToString(format RichErrorOutputFormat) string {
 }
 
 func (e richError) Error() string {
-	return e.ToString(DetailedOutput)
+	return e.ToString(errorOutputFormat)
 }
 
 func (e richError) shortOutputString(seperator string) string {
