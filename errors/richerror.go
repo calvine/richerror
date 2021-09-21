@@ -10,13 +10,16 @@ import (
 )
 
 type RichErrorOutputFormat int
+type CustomOutputFunc func(e ReadOnlyRichError) string
 
 var (
-	errorOutputFormat RichErrorOutputFormat = FullOutputFormatted
+	customOutputFunction CustomOutputFunc
+	errorOutputFormat    RichErrorOutputFormat = FullOutputFormatted
 )
 
 const (
 	NotSpecified RichErrorOutputFormat = iota
+	CustomOutput
 	DetailedOutput
 	FullOutputFormatted
 	FullOutputInline
@@ -36,6 +39,7 @@ type ReadOnlyRichError interface {
 	GetErrors() []error
 	HasStack() bool
 	ToString(format RichErrorOutputFormat) string
+	ToCustomString(cof CustomOutputFunc) string
 
 	error
 }
@@ -76,6 +80,10 @@ type richError struct {
 	OccurredAt  time.Time              `json:"occurredAt"`
 	InnerErrors []error                `json:"innerErrors"`
 	MetaData    map[string]interface{} `json:"metaData"`
+}
+
+func SetCustomOutputFunction(cof CustomOutputFunc) {
+	customOutputFunction = cof
 }
 
 func SetErrorOutputFormat(format RichErrorOutputFormat) {
@@ -226,6 +234,8 @@ func (e richError) GetErrors() []error {
 
 func (e richError) ToString(format RichErrorOutputFormat) string {
 	switch format {
+	case CustomOutput:
+		return e.ToCustomString(customOutputFunction)
 	case DetailedOutput:
 		return e.detailedOutputString("\n", "\t")
 	case FullOutputFormatted:
@@ -237,6 +247,13 @@ func (e richError) ToString(format RichErrorOutputFormat) string {
 	default: // ShortOutput is default?
 		return e.shortOutputString(" - ")
 	}
+}
+
+func (e richError) ToCustomString(cof CustomOutputFunc) string {
+	if cof == nil {
+		panic("CustomOutput mode is selected and the provided CustomOutputFunction is nil")
+	}
+	return cof(e)
 }
 
 func (e richError) Error() string {
