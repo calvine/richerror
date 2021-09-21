@@ -9,9 +9,15 @@ import (
 	"time"
 )
 
-var (
-	indentString  = "\t" //""
-	partSeperator = "\n" //" - "
+type RichErrorOutputFormat int
+
+const (
+	NotSpecified RichErrorOutputFormat = iota
+	DetailedOutput
+	FullOutputFormatted
+	FullOutputInline
+	ShortDetailedOutput
+	ShortOutput
 )
 
 type ReadOnlyRichError interface {
@@ -24,6 +30,8 @@ type ReadOnlyRichError interface {
 	GetMetaData() map[string]interface{}
 	GetMetaDataItem(key string) (interface{}, bool)
 	GetErrors() []error
+	HasStack() bool
+	ToString(format RichErrorOutputFormat) string
 
 	error
 }
@@ -59,7 +67,7 @@ type richError struct {
 	Message     string                 `json:"message"`
 	Source      string                 `json:"source,omitempty"`
 	Function    string                 `json:"function,omitempty"`
-	LineNumber  string                 `json:"lineNumber,omitempty"`
+	Line        string                 `json:"line,omitempty"`
 	Stack       []callStackEntry       `json:"stack,omitempty"`
 	OccurredAt  time.Time              `json:"occurredAt"`
 	InnerErrors []error                `json:"innerErrors"`
@@ -96,10 +104,6 @@ func (e richError) WithStack(stackOffset int) RichError {
 		nextFrame, _ := data.Next()
 		if i == 0 {
 			source := nextFrame.File
-			// if len(source) > 0 {
-			// 	sourceLastIndex := strings.LastIndex(nextFrame.File, string(os.PathSeparator))
-			// 	source = source[sourceLastIndex+1:]
-			// }
 
 			functionName := nextFrame.Function
 			if len(functionName) > 0 {
@@ -108,7 +112,7 @@ func (e richError) WithStack(stackOffset int) RichError {
 			}
 			e.Source = source
 			e.Function = functionName
-			e.LineNumber = strconv.Itoa(nextFrame.Line)
+			e.Line = strconv.Itoa(nextFrame.Line)
 		}
 		callStackEntry := callStackEntry{
 			Depth:    i,
@@ -150,7 +154,7 @@ func (e richError) AddFunction(function string) RichError {
 }
 
 func (e richError) AddLineNumber(lineNumber string) RichError {
-	e.LineNumber = lineNumber
+	e.Line = lineNumber
 	return e
 }
 
@@ -193,7 +197,7 @@ func (e richError) GetFunction() string {
 }
 
 func (e richError) GetLineNumber() string {
-	return e.LineNumber
+	return e.Line
 }
 
 func (e richError) GetMetaData() map[string]interface{} {
@@ -212,7 +216,64 @@ func (e richError) GetErrors() []error {
 	return e.InnerErrors
 }
 
+func (e richError) ToString(format RichErrorOutputFormat) string {
+	switch format {
+	case DetailedOutput:
+		return e.detailedOutputString("\n", "\t")
+	case FullOutputFormatted:
+		return e.fullOutputString("\n", "\t")
+	case FullOutputInline:
+		return e.fullOutputString(" --- ", "")
+	case ShortDetailedOutput:
+		return e.shortDetailedOutputString(" - ")
+	default: // ShortOutput is default?
+		return e.shortOutputString(" - ")
+	}
+}
+
 func (e richError) Error() string {
+	return e.ToString(DetailedOutput)
+}
+
+func (e richError) shortOutputString(seperator string) string {
+	return fmt.Sprintf("%s%s%s%s%s", e.OccurredAt.String(), seperator, e.ErrCode, seperator, e.Message)
+}
+
+func (e richError) shortDetailedOutputString(seperator string) string {
+	return fmt.Sprintf("%s%s%s%s%s%s%s:%s", e.OccurredAt.String(), seperator, e.ErrCode, seperator, e.Message, seperator, e.Source, e.Line)
+}
+
+func (e richError) detailedOutputString(partSeperator, indentString string) string {
+	var messageBuffer bytes.Buffer
+	timeStampMsg := fmt.Sprintf("ERROR - %s", e.OccurredAt.String())
+	messageBuffer.WriteString(timeStampMsg)
+	if e.Source != "" {
+		sourceSection := fmt.Sprintf("%sSOURCE: %s:%s", partSeperator, e.Source, e.Line)
+		messageBuffer.WriteString(sourceSection)
+	}
+	if e.ErrCode != "" {
+		errCodeSection := fmt.Sprintf("%sERRCODE: %s", partSeperator, e.ErrCode)
+		messageBuffer.WriteString(errCodeSection)
+	}
+	if e.Message != "" {
+		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeperator, e.Message)
+		messageBuffer.WriteString(messageSection)
+	}
+	if len(e.MetaData) > 0 {
+		messageBuffer.WriteString("METADATA:")
+		for key, value := range e.MetaData {
+			metaDataMsg := fmt.Sprintf("%s%s%s: %v", partSeperator, indentString, key, value)
+			messageBuffer.WriteString(metaDataMsg)
+		}
+	}
+	return messageBuffer.String()
+}
+
+func (e richError) HasStack() bool {
+	return len(e.Stack) > 0
+}
+
+func (e richError) fullOutputString(partSeperator, indentString string) string {
 	var messageBuffer bytes.Buffer
 	timeStampMsg := fmt.Sprintf("TIMESTAMP: %s", e.OccurredAt.String())
 	messageBuffer.WriteString(timeStampMsg)
@@ -224,8 +285,8 @@ func (e richError) Error() string {
 		functionSection := fmt.Sprintf("%sFUNCTION: %s", partSeperator, e.Function)
 		messageBuffer.WriteString(functionSection)
 	}
-	if e.LineNumber != "" {
-		LineNumberSection := fmt.Sprintf("%sLINE_NUM: %s", partSeperator, e.LineNumber)
+	if e.Line != "" {
+		LineNumberSection := fmt.Sprintf("%sLINE_NUM: %s", partSeperator, e.Line)
 		messageBuffer.WriteString(LineNumberSection)
 	}
 	if e.ErrCode != "" {
