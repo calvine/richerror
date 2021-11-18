@@ -12,7 +12,7 @@ type DataItem struct {
 type ErrorData struct {
 	// Code is expected to be Pascal Case. Is a preferable unique string code for an error.
 	Code string `json:"code"`
-	// Tags are a way of grouping errors together so that the can be target for generation in groups.
+	// Tags are a way of grouping errors together so that the can be target for generation in groups, Also these tags can be used for aggregation in log viewers.
 	Tags []string `json:"tags"`
 	// Message is a string added as the message to the error produced.
 	Message string `json:"message"`
