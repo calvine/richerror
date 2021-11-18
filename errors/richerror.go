@@ -34,6 +34,7 @@ type ReadOnlyRichError interface {
 	GetSource() string
 	GetFunction() string
 	GetLineNumber() string
+	GetTags() []string
 	GetMetaData() map[string]interface{}
 	GetMetaDataItem(key string) (interface{}, bool)
 	GetErrors() []error
@@ -48,11 +49,13 @@ type RichError interface {
 	WithStack(stackOffset int) RichError
 	WithMetaData(metaData map[string]interface{}) RichError
 	WithErrors(errs []error) RichError
+	WithTags(tags []string) RichError
 	AddSource(source string) RichError
 	AddFunction(function string) RichError
 	AddLineNumber(lineNumber string) RichError
 	AddMetaData(key string, value interface{}) RichError
 	AddError(err error) RichError
+	AddTag(tag string) RichError
 
 	ReadOnlyRichError
 }
@@ -76,8 +79,9 @@ type richError struct {
 	Source      string                 `json:"source,omitempty"`
 	Function    string                 `json:"function,omitempty"`
 	Line        string                 `json:"line,omitempty"`
-	Stack       []callStackEntry       `json:"stack,omitempty"`
 	OccurredAt  time.Time              `json:"occurredAt"`
+	Tags        []string               `json:"tags"`
+	Stack       []callStackEntry       `json:"stack,omitempty"`
 	InnerErrors []error                `json:"innerErrors"`
 	MetaData    map[string]interface{} `json:"metaData"`
 }
@@ -150,12 +154,12 @@ func (e richError) WithMetaData(metaData map[string]interface{}) RichError {
 }
 
 func (e richError) WithErrors(errs []error) RichError {
-	if errs != nil {
-		if e.InnerErrors == nil {
-			e.InnerErrors = make([]error, len(errs))
-		}
-		e.InnerErrors = append(e.InnerErrors, errs...)
-	}
+	e.InnerErrors = append(e.InnerErrors, errs...)
+	return e
+}
+
+func (e richError) WithTags(tags []string) RichError {
+	e.Tags = tags
 	return e
 }
 
@@ -176,19 +180,19 @@ func (e richError) AddLineNumber(lineNumber string) RichError {
 
 func (e richError) AddMetaData(key string, value interface{}) RichError {
 	if e.MetaData == nil {
-		e.MetaData = make(map[string]interface{}, 1)
+		e.MetaData = make(map[string]interface{})
 	}
 	e.MetaData[key] = value
 	return e
 }
 
 func (e richError) AddError(err error) RichError {
-	if err != nil {
-		if e.InnerErrors == nil {
-			e.InnerErrors = make([]error, 1)
-		}
-		e.InnerErrors = append(e.InnerErrors, err)
-	}
+	e.InnerErrors = append(e.InnerErrors, err)
+	return e
+}
+
+func (e richError) AddTag(tag string) RichError {
+	e.Tags = append(e.Tags, tag)
 	return e
 }
 
@@ -218,6 +222,10 @@ func (e richError) GetLineNumber() string {
 
 func (e richError) GetMetaData() map[string]interface{} {
 	return e.MetaData
+}
+
+func (e richError) GetTags() []string {
+	return e.Tags
 }
 
 func (e richError) GetMetaDataItem(key string) (interface{}, bool) {

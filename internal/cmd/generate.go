@@ -27,35 +27,11 @@ import (
 	"path"
 	"strings"
 
+	"github.com/calvine/richerror/internal/cmd/models"
+	"github.com/calvine/richerror/internal/cmd/utilities"
 	"github.com/calvine/richerror/internal/templates"
-	"github.com/calvine/richerror/internal/utilities"
 	"github.com/spf13/cobra"
 )
-
-type dataItem struct {
-	// Name is the name of the parameter added to the error constructor as well as the label added to the parameter in the errors metadata.
-	Name string `json:"name"`
-	// DataType is a string that tells the go generator what the type of this field is for the error constructor.
-	DataType string `json:"dataType"`
-}
-
-type errorData struct {
-	// Code is expected to be Pascal Case. Is a preferable unique string code for an error.
-	Code string `json:"code"`
-	// Tags are a way of grouping errors together so that the can be target for generation in groups.
-	Tags []string `json:"tags"`
-	// Message is a string added as the message to the error produced.
-	Message string `json:"message"`
-	// IncludeMap if true adds a map[string]interface{} to the parameters of a constructor so that a genereic map of data can get added to an error constructor parameters list in addition to any specific data defined in MetaData.
-	IncludeMap bool `json:"includeMap"`
-	// MetaData is an array of dataItem that lists specific data that should be added to the error constructor, and added to the errors metadata map.
-	MetaData []dataItem `json:"metaData"`
-}
-
-type generatorData struct {
-	ErrorPkg string
-	errorData
-}
 
 const (
 	FlagErrorsDefinitionFile = "errorsDefinitionFile"
@@ -118,14 +94,15 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	}
 	// codesDir := path.Join(outDir, strings.ToLower(outputErrorPkg), strings.ToLower(outputCodePkg))
 	funcMap := template.FuncMap{
-		"ToUpper":            strings.ToUpper,
-		"ToLower":            strings.ToLower,
-		"UpperCaseFirstChar": utilities.UpperCaseFirstChar,
-		"LowerCaseFirstChar": utilities.LowerCaseFirstChar,
+		"toUpper":              strings.ToUpper,
+		"toLower":              strings.ToLower,
+		"upperCaseFirstChar":   utilities.UpperCaseFirstChar,
+		"lowerCaseFirstChar":   utilities.LowerCaseFirstChar,
+		"getDataItemImportMap": utilities.GetDataItemImportMap,
 	}
-	errConstructorTemplate := template.Must(template.New("Error constructor template").Parse(templates.ErrorConstructorTemplate)).Funcs(funcMap)
+	errConstructorTemplate := template.Must(template.New("Error constructor template").Funcs(funcMap).Parse(templates.ErrorConstructorTemplate))
 	// errCodeTemplate := template.Must(template.New("Error code template").Parse(templates.ErrorCodeTemplate)).Funcs(funcMap)
-	errDataSlice := make([]errorData, 0)
+	errDataSlice := make([]models.ErrorData, 0)
 	jsonErrorDataFileData, err := ioutil.ReadFile(errorsDefinitionFile)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to open file %s - %s", errorsDefinitionFile, err.Error())
@@ -143,7 +120,10 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	}
 	fmt.Printf("generating %d errors.\n\n", len(errDataSlice))
 	for _, data := range errDataSlice {
-		genData := generatorData{outputErrorPkg, data}
+		genData := models.GeneratorData{
+			ErrorPkg:  outputErrorPkg,
+			ErrorData: data,
+		}
 		constructorBuffer := bytes.NewBufferString("")
 		err := errConstructorTemplate.Execute(constructorBuffer, genData)
 		if err != nil {
@@ -197,8 +177,8 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	}
 }
 
-func getMatchingErrorsByTag(data []errorData, tags []string, isInclude bool) []errorData {
-	matchingErrors := make([]errorData, 0)
+func getMatchingErrorsByTag(data []models.ErrorData, tags []string, isInclude bool) []models.ErrorData {
+	matchingErrors := make([]models.ErrorData, 0)
 	for _, errDefinition := range data {
 		hasMatchingTag := false
 		var firstMatchedTag string

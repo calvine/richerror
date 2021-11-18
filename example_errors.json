@@ -92,7 +92,9 @@
             { "name": "actual", "dataType": "string"},
             { "name": "expected", "dataType": "string"}
         ],
-        "tags": []
+        "tags": [
+            "misc"
+        ]
     },
     {
         "code": "LoginFailedWrongPassword",
@@ -102,7 +104,9 @@
             { "name": "userID", "dataType": "string"}
         ],
         "tags": [
-            "auth"
+            "auth",
+            "security",
+            "misc"
         ]
     },
     {
@@ -123,7 +127,9 @@
             { "name": "oid", "dataType": "string"},
             { "name": "error", "dataType": "error"}
         ],
-        "tags": []
+        "tags": [
+            "security"
+        ]
     },
     {
         "code": "ComponentNotImplemented",
@@ -144,5 +150,17 @@
             { "name": "error", "dataType": "error"}
         ],
         "tags": []
+    },    
+    {
+        "code": "ImportPathTest",
+        "message": "An example of using multiple import paths for meta data",
+        "includeMap": false,
+        "metaData": [
+            { "name": "id", "dataType": "string" },
+            { "name": "tokenType", "dataType": "string" },
+            { "name": "expiredAt", "dataType": "time.Time", "importPath": "time" },
+            { "name": "otherTime", "dataType": "time.Time", "importPath": "time" },
+            { "name": "otherFileInfo", "dataType": "os.FileInfo", "importPath": "os" }
+        ]
     }
 ]
