@@ -14,9 +14,11 @@ type CustomOutputFunc func(e ReadOnlyRichError) string
 
 var (
 	// customOutputFunction is a global function for a custom output format for rich errors in a text format.
+	// it is set by calling SetGlobalCustomOutputFunction
 	// the custome output function can also be set on the error level by calling the SetCustomOutputFunction function
 	customOutputFunction CustomOutputFunc
 	// errorOutputFormat is a global setting for the default output format of a rich error in text format.
+	// it is set by calling SetGlobalErrorOutputFormat
 	// the output format can also be set on the specific error level via the SetOutputFormat function
 	errorOutputFormat RichErrorOutputFormat = FullOutputFormatted
 )
@@ -95,11 +97,11 @@ type richError struct {
 	customOutputFunction CustomOutputFunc       `json:"-"`
 }
 
-func SetCustomOutputFunction(cof CustomOutputFunc) {
+func SetGlobalCustomOutputFunction(cof CustomOutputFunc) {
 	customOutputFunction = cof
 }
 
-func SetErrorOutputFormat(format RichErrorOutputFormat) {
+func SetGlobalErrorOutputFormat(format RichErrorOutputFormat) {
 	errorOutputFormat = format
 }
 
