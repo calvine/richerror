@@ -13,8 +13,12 @@ type RichErrorOutputFormat int
 type CustomOutputFunc func(e ReadOnlyRichError) string
 
 var (
+	// customOutputFunction is a global function for a custom output format for rich errors in a text format.
+	// the custome output function can also be set on the error level by calling the SetCustomOutputFunction function
 	customOutputFunction CustomOutputFunc
-	errorOutputFormat    RichErrorOutputFormat = FullOutputFormatted
+	// errorOutputFormat is a global setting for the default output format of a rich error in text format.
+	// the output format can also be set on the specific error level via the SetOutputFormat function
+	errorOutputFormat RichErrorOutputFormat = FullOutputFormatted
 )
 
 const (
@@ -40,7 +44,7 @@ type ReadOnlyRichError interface {
 	GetErrors() []error
 	HasStack() bool
 	ToString(format RichErrorOutputFormat) string
-	ToCustomString(cof CustomOutputFunc) string
+	ToCustomString() string
 
 	error
 }
@@ -56,6 +60,9 @@ type RichError interface {
 	AddMetaData(key string, value interface{}) RichError
 	AddError(err error) RichError
 	AddTag(tag string) RichError
+
+	SetCustomOutputFunction(cof CustomOutputFunc) RichError
+	SetOutputFormat(outputFormat RichErrorOutputFormat) RichError
 
 	ReadOnlyRichError
 }
@@ -74,16 +81,18 @@ func (cse *callStackEntry) String() string {
 }
 
 type richError struct {
-	ErrCode     string                 `json:"code"`
-	Message     string                 `json:"message"`
-	Source      string                 `json:"source,omitempty"`
-	Function    string                 `json:"function,omitempty"`
-	Line        string                 `json:"line,omitempty"`
-	OccurredAt  time.Time              `json:"occurredAt"`
-	Tags        []string               `json:"tags"`
-	Stack       []callStackEntry       `json:"stack,omitempty"`
-	InnerErrors []error                `json:"innerErrors"`
-	MetaData    map[string]interface{} `json:"metaData"`
+	ErrCode              string                 `json:"code"`
+	Message              string                 `json:"message"`
+	Source               string                 `json:"source,omitempty"`
+	Function             string                 `json:"function,omitempty"`
+	Line                 string                 `json:"line,omitempty"`
+	OccurredAt           time.Time              `json:"occurredAt"`
+	Tags                 []string               `json:"tags"`
+	Stack                []callStackEntry       `json:"stack,omitempty"`
+	InnerErrors          []error                `json:"innerErrors"`
+	MetaData             map[string]interface{} `json:"metaData"`
+	outputFormat         RichErrorOutputFormat  `json:"-"`
+	customOutputFunction CustomOutputFunc       `json:"-"`
 }
 
 func SetCustomOutputFunction(cof CustomOutputFunc) {
@@ -196,6 +205,16 @@ func (e richError) AddTag(tag string) RichError {
 	return e
 }
 
+func (e richError) SetCustomOutputFunction(cof CustomOutputFunc) RichError {
+	e.customOutputFunction = cof
+	return e
+}
+
+func (e richError) SetOutputFormat(outputFormat RichErrorOutputFormat) RichError {
+	e.outputFormat = outputFormat
+	return e
+}
+
 func (e richError) GetErrorCode() string {
 	return e.ErrCode
 }
@@ -240,10 +259,28 @@ func (e richError) GetErrors() []error {
 	return e.InnerErrors
 }
 
+func (e richError) getCustomOutputFunction() CustomOutputFunc {
+	if e.customOutputFunction != nil {
+		return e.customOutputFunction
+	}
+	return customOutputFunction
+}
+
+func (e richError) getErrorOutputFormat() RichErrorOutputFormat {
+	if e.outputFormat != NotSpecified {
+		return e.outputFormat
+	}
+	return errorOutputFormat
+}
+
+func (e richError) HasStack() bool {
+	return len(e.Stack) > 0
+}
+
 func (e richError) ToString(format RichErrorOutputFormat) string {
 	switch format {
 	case CustomOutput:
-		return e.ToCustomString(customOutputFunction)
+		return e.ToCustomString()
 	case DetailedOutput:
 		return e.detailedOutputString("\n", "\t")
 	case FullOutputFormatted:
@@ -257,15 +294,17 @@ func (e richError) ToString(format RichErrorOutputFormat) string {
 	}
 }
 
-func (e richError) ToCustomString(cof CustomOutputFunc) string {
+func (e richError) ToCustomString() string {
+	cof := e.getCustomOutputFunction()
 	if cof == nil {
-		panic("CustomOutput mode is selected and the provided CustomOutputFunction is nil")
+		panic("CustomOutput mode is selected and no custom output function set for the error or globally")
 	}
 	return cof(e)
 }
 
 func (e richError) Error() string {
-	return e.ToString(errorOutputFormat)
+	eof := e.getErrorOutputFormat()
+	return e.ToString(eof)
 }
 
 func (e richError) shortOutputString(seperator string) string {
@@ -300,10 +339,6 @@ func (e richError) detailedOutputString(partSeperator, indentString string) stri
 		}
 	}
 	return messageBuffer.String()
-}
-
-func (e richError) HasStack() bool {
-	return len(e.Stack) > 0
 }
 
 func (e richError) fullOutputString(partSeperator, indentString string) string {
@@ -343,7 +378,12 @@ func (e richError) fullOutputString(partSeperator, indentString string) string {
 	if len(e.InnerErrors) > 0 {
 		messageBuffer.WriteString("INNER ERRORS:")
 		for i, err := range e.InnerErrors {
-			innerErrMessage := fmt.Sprintf("%s%sERROR #%d: %s", partSeperator, strings.Repeat(indentString, i+1), i+1, err.Error())
+			var innerErrMessage string
+			if rore, ok := err.(ReadOnlyRichError); ok {
+				innerErrMessage = fmt.Sprintf("%s%sERROR #%d: %s", partSeperator, strings.Repeat(indentString, i+1), i+1, rore.ToString(ShortDetailedOutput))
+			} else {
+				innerErrMessage = fmt.Sprintf("%s%sERROR #%d: %s", partSeperator, strings.Repeat(indentString, i+1), i+1, err.Error())
+			}
 			messageBuffer.WriteString(innerErrMessage)
 		}
 		messageBuffer.WriteString(partSeperator)
