@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,7 +22,6 @@ import (
 	"go/format"
 	"html/template"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -72,13 +71,13 @@ func initGenerator() {
 
 	// Cobra supports local flags which will only run when this command
 
-	// This flags are persistent because at soom point other languages could be sub commands to this command.
+	// This flags are persistent because at some point other languages could be sub commands to this command.
 	generateCmd.PersistentFlags().StringVarP(&errorsDefinitionFile, FlagErrorsDefinitionFile, "i", "", "The path to the errors definition file to use for error generation.")
 	generateCmd.MarkPersistentFlagRequired(FlagErrorsDefinitionFile)
 	generateCmd.PersistentFlags().StringVarP(&outDir, FlagOutDir, "o", ".", "The output path to place the generated files. Setting this to 'stdout' will print the generated files to stdout.")
 	generateCmd.PersistentFlags().StringVarP(&outputErrorPkg, FlagOutputErrorPkg, "e", "errors", "The package to put at the top of the generated error files")
-	generateCmd.PersistentFlags().StringVarP(&includeTags, FlagIncludeTags, "t", "", fmt.Sprintf("Specifies the errors to perform code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas. This is mutually exclusive with %s", FlagExcludeTags))
-	generateCmd.PersistentFlags().StringVarP(&excludeTags, FlagExcludeTags, "x", "", fmt.Sprintf("Specifies the errors to exclude from code generation on based on the tags associated with it in the error definion file. Multiple tags are seperated by commas. This is mutually exclusive with %s", FlagIncludeTags))
+	generateCmd.PersistentFlags().StringVarP(&includeTags, FlagIncludeTags, "t", "", fmt.Sprintf("Specifies the errors to perform code generation on based on the tags associated with it in the error definition file. Multiple tags are separated by commas. This is mutually exclusive with %s", FlagExcludeTags))
+	generateCmd.PersistentFlags().StringVarP(&excludeTags, FlagExcludeTags, "x", "", fmt.Sprintf("Specifies the errors to exclude from code generation on based on the tags associated with it in the error definition file. Multiple tags are separated by commas. This is mutually exclusive with %s", FlagIncludeTags))
 	// generateCmd.Flags().StringVarP(&outputCodePkg, FlagOutputCodePkg, "c", "codes", "The package to put at the top of the generated error code files")
 }
 
@@ -103,7 +102,7 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 	errConstructorTemplate := template.Must(template.New("Error constructor template").Funcs(funcMap).Parse(templates.ErrorConstructorTemplate))
 	// errCodeTemplate := template.Must(template.New("Error code template").Parse(templates.ErrorCodeTemplate)).Funcs(funcMap)
 	errDataSlice := make([]models.ErrorData, 0)
-	jsonErrorDataFileData, err := ioutil.ReadFile(errorsDefinitionFile)
+	jsonErrorDataFileData, err := os.ReadFile(errorsDefinitionFile)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to open file %s - %s", errorsDefinitionFile, err.Error())
 		panic(errMsg)
@@ -162,7 +161,7 @@ func errorGenerator(cmd *cobra.Command, args []string) {
 			fileName := fmt.Sprintf("%s.go", strings.ToLower(data.Code))
 			errConstructorFilePath := path.Join(errorsDir, fileName)
 			fmt.Printf("Generating code for error code: %s -> %s\n", data.Code, errConstructorFilePath)
-			err = ioutil.WriteFile(errConstructorFilePath, errConstructorCode, fs.ModePerm)
+			err = os.WriteFile(errConstructorFilePath, errConstructorCode, fs.ModePerm)
 			if err != nil {
 				fmt.Printf("Failed to write file %s for err constructor for code %s - %s\n\n\n", errConstructorFilePath, data.Code, err.Error())
 				continue

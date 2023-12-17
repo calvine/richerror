@@ -15,7 +15,7 @@ type CustomOutputFunc func(e ReadOnlyRichError) string
 var (
 	// customOutputFunction is a global function for a custom output format for rich errors in a text format.
 	// it is set by calling SetGlobalCustomOutputFunction
-	// the custome output function can also be set on the error level by calling the SetCustomOutputFunction function
+	// the custom output function can also be set on the error level by calling the SetCustomOutputFunction function
 	customOutputFunction CustomOutputFunc
 	// errorOutputFormat is a global setting for the default output format of a rich error in text format.
 	// it is set by calling SetGlobalErrorOutputFormat
@@ -198,7 +198,9 @@ func (e richError) AddMetaData(key string, value interface{}) RichError {
 }
 
 func (e richError) AddError(err error) RichError {
-	e.InnerErrors = append(e.InnerErrors, err)
+	if err != nil {
+		e.InnerErrors = append(e.InnerErrors, err)
+	}
 	return e
 }
 
@@ -309,70 +311,70 @@ func (e richError) Error() string {
 	return e.ToString(eof)
 }
 
-func (e richError) shortOutputString(seperator string) string {
-	return fmt.Sprintf("%s%s%s%s%s", e.OccurredAt.String(), seperator, e.ErrCode, seperator, e.Message)
+func (e richError) shortOutputString(separator string) string {
+	return fmt.Sprintf("%s%s%s%s%s", e.OccurredAt.String(), separator, e.ErrCode, separator, e.Message)
 }
 
-func (e richError) shortDetailedOutputString(seperator string) string {
-	return fmt.Sprintf("%s%s%s%s%s%s%s:%s", e.OccurredAt.String(), seperator, e.ErrCode, seperator, e.Message, seperator, e.Source, e.Line)
+func (e richError) shortDetailedOutputString(separator string) string {
+	return fmt.Sprintf("%s%s%s%s%s%s%s:%s", e.OccurredAt.String(), separator, e.ErrCode, separator, e.Message, separator, e.Source, e.Line)
 }
 
-func (e richError) detailedOutputString(partSeperator, indentString string) string {
+func (e richError) detailedOutputString(partSeparator, indentString string) string {
 	var messageBuffer bytes.Buffer
 	timeStampMsg := fmt.Sprintf("ERROR - %s", e.OccurredAt.String())
 	messageBuffer.WriteString(timeStampMsg)
 	if e.Source != "" {
-		sourceSection := fmt.Sprintf("%sSOURCE: %s:%s", partSeperator, e.Source, e.Line)
+		sourceSection := fmt.Sprintf("%sSOURCE: %s:%s", partSeparator, e.Source, e.Line)
 		messageBuffer.WriteString(sourceSection)
 	}
 	if e.ErrCode != "" {
-		errCodeSection := fmt.Sprintf("%sERRCODE: %s", partSeperator, e.ErrCode)
+		errCodeSection := fmt.Sprintf("%sERRCODE: %s", partSeparator, e.ErrCode)
 		messageBuffer.WriteString(errCodeSection)
 	}
 	if e.Message != "" {
-		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeperator, e.Message)
+		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeparator, e.Message)
 		messageBuffer.WriteString(messageSection)
 	}
 	if len(e.MetaData) > 0 {
 		messageBuffer.WriteString("METADATA:")
 		for key, value := range e.MetaData {
-			metaDataMsg := fmt.Sprintf("%s%s%s: %v", partSeperator, indentString, key, value)
+			metaDataMsg := fmt.Sprintf("%s%s%s: %v", partSeparator, indentString, key, value)
 			messageBuffer.WriteString(metaDataMsg)
 		}
 	}
 	return messageBuffer.String()
 }
 
-func (e richError) fullOutputString(partSeperator, indentString string) string {
+func (e richError) fullOutputString(partSeparator, indentString string) string {
 	var messageBuffer bytes.Buffer
 	timeStampMsg := fmt.Sprintf("TIMESTAMP: %s", e.OccurredAt.String())
 	messageBuffer.WriteString(timeStampMsg)
 	if e.Source != "" {
-		sourceSection := fmt.Sprintf("%sSOURCE: %s", partSeperator, e.Source)
+		sourceSection := fmt.Sprintf("%sSOURCE: %s", partSeparator, e.Source)
 		messageBuffer.WriteString(sourceSection)
 	}
 	if e.Function != "" {
-		functionSection := fmt.Sprintf("%sFUNCTION: %s", partSeperator, e.Function)
+		functionSection := fmt.Sprintf("%sFUNCTION: %s", partSeparator, e.Function)
 		messageBuffer.WriteString(functionSection)
 	}
 	if e.Line != "" {
-		LineNumberSection := fmt.Sprintf("%sLINE_NUM: %s", partSeperator, e.Line)
+		LineNumberSection := fmt.Sprintf("%sLINE_NUM: %s", partSeparator, e.Line)
 		messageBuffer.WriteString(LineNumberSection)
 	}
 	if e.ErrCode != "" {
-		errCodeSection := fmt.Sprintf("%sERRCODE: %s", partSeperator, e.ErrCode)
+		errCodeSection := fmt.Sprintf("%sERRCODE: %s", partSeparator, e.ErrCode)
 		messageBuffer.WriteString(errCodeSection)
 	}
 	if e.Message != "" {
-		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeperator, e.Message)
+		messageSection := fmt.Sprintf("%sMESSAGE: %s", partSeparator, e.Message)
 		messageBuffer.WriteString(messageSection)
 	}
 	if len(e.Stack) > 0 {
 		stackBuffer := bytes.Buffer{}
-		firstLine := fmt.Sprintf("%sSTACK: ", partSeperator)
+		firstLine := fmt.Sprintf("%sSTACK: ", partSeparator)
 		stackBuffer.WriteString(firstLine)
 		for _, frame := range e.Stack {
-			stackFrame := fmt.Sprintf("%s%s%s", strings.Repeat(indentString, frame.Depth), frame.String(), partSeperator)
+			stackFrame := fmt.Sprintf("%s%s%s", strings.Repeat(indentString, frame.Depth), frame.String(), partSeparator)
 			stackBuffer.WriteString(stackFrame)
 		}
 		messageBuffer.WriteString(stackBuffer.String())
@@ -380,22 +382,28 @@ func (e richError) fullOutputString(partSeperator, indentString string) string {
 	if len(e.InnerErrors) > 0 {
 		messageBuffer.WriteString("INNER ERRORS:")
 		for i, err := range e.InnerErrors {
-			var innerErrMessage string
-			if rore, ok := err.(ReadOnlyRichError); ok {
-				innerErrMessage = fmt.Sprintf("%s%sERROR #%d: %s", partSeperator, strings.Repeat(indentString, i+1), i+1, rore.ToString(ShortDetailedOutput))
-			} else {
-				innerErrMessage = fmt.Sprintf("%s%sERROR #%d: %s", partSeperator, strings.Repeat(indentString, i+1), i+1, err.Error())
+			if err != nil { // errors here should never be nil but just incase?
+				messageBuffer.WriteString(getInnerErrorString(err, partSeparator, indentString, i))
 			}
-			messageBuffer.WriteString(innerErrMessage)
 		}
-		messageBuffer.WriteString(partSeperator)
+		messageBuffer.WriteString(partSeparator)
 	}
 	if len(e.MetaData) > 0 {
 		messageBuffer.WriteString("METADATA:")
 		for key, value := range e.MetaData {
-			metaDataMsg := fmt.Sprintf("%s%s%s: %v", partSeperator, indentString, key, value)
+			metaDataMsg := fmt.Sprintf("%s%s%s: %v", partSeparator, indentString, key, value)
 			messageBuffer.WriteString(metaDataMsg)
 		}
 	}
 	return messageBuffer.String()
+}
+
+func getInnerErrorString(err error, partSeparator string, indentString string, index int) string {
+	var innerErrString string
+	if richError, ok := err.(ReadOnlyRichError); ok {
+		innerErrString = fmt.Sprintf("%s%sERROR #%d: %s", partSeparator, strings.Repeat(indentString, index+1), index+1, richError.ToString(ShortDetailedOutput))
+	} else {
+		innerErrString = fmt.Sprintf("%s%sERROR #%d: %s", partSeparator, strings.Repeat(indentString, index+1), index+1, err.Error())
+	}
+	return innerErrString
 }

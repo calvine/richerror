@@ -50,7 +50,7 @@ func Is{{ .Code }}Error(err errors.ReadOnlyRichError) bool {
 
 `
 
-// TODO: determine if we want the error code in a seperate package.
+// TODO: determine if we want the error code in a separate package.
 
 // 	ErrorCodeTemplate = `
 // package {{ .CodePkg }}
